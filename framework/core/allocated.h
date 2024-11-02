@@ -29,10 +29,12 @@ class Device;
 namespace allocated
 {
 /**
- * @brief Retrieves a reference to the VMA allocator singleton.  It will hold a null value except between calls to `init` and `shutdown`.
+ * @brief Retrieves a reference to the VMA allocator singleton.  It will hold a null value except between
+ * calls to `init` and `shutdown`.  Otherwise it contains the opaque handle to the VMA allocator.
  * @return The VMA allocator instance.
  */
 VmaAllocator &get_memory_allocator();
+
 
 /**
  * @brief The non-templatized VMA initializer function, referenced by the template version to smooth
@@ -95,12 +97,6 @@ void init(const DeviceType &device)
 
 	init(allocator_info);
 }
-
-/**
- * @brief Retrieves the VMA allocator singleton instance.
- * @return The VMA allocator instance.
- */
-VmaAllocator &get_memory_allocator();
 
 /**
  * @brief Shuts down the VMA allocator and releases all resources.  Idempotent, but should be paired with `init` and attempting to run examples
