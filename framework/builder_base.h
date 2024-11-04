@@ -22,17 +22,20 @@
 #include "vulkan_type_mapping.h"
 #include <vulkan/vulkan.hpp>
 
-namespace vkb
-{
+namespace vkb {
+
+namespace allocated {
+
+
 /**
  * @brief Many Vulkan resource types (most notably Images and to a lesser extent Buffers)
- * and and their corresponding memory allocations have many paraamters that need to be setup
+ * and and their corresponding memory allocations have many parameters that need to be setup
  * when creating them.  Although many of these have reasonable defaults, constructors with
  * numerous arguments, some or all of which may have default arguments, aren't well suited
  * to partial customization.  This is a common failing of languages that don't support named
  * arguments and has led to the common use of the [builder pattern](https://en.wikipedia.org/wiki/Builder_pattern),
  * where a helper class is used to store all the options that can be tweaked for an object
- * when it's created. A builder class will have reasonable defaults whre appropriate and only
+ * when it's created. A builder class will have reasonable defaults where appropriate and only
  * require arguments for the builder constructor when a value is always required for creation to occur
  * (for example, the size of a buffer or the extent of an image).  Remaining parameters can be set
  * with methods on the builder class, which return a reference to the builder object, allowing
@@ -57,7 +60,7 @@ namespace vkb
             .with_sharing_mode(sharing_mode));
  ```
  * The actual image can be created with `build()` which returns a `vkb::core::Image` or `buildPtr` which returns a `std::unique_ptr<vkb::core::Image>`.
- * Alternatively, the builder can used as an argument to the `Image` constructor, which will build the image for you in place.
+ * Alternatively, the builder can be used as an argument to the `Image` constructor, which will build the image for you in place.
  * @note The builder pattern is intended to displace the currently used `vkb::core::Image` and `vkb::core::Buffer` constructors with numerous
  * arguments, but this is a work in progress and not currently in wide use in the codebase.
  *
@@ -255,4 +258,6 @@ inline BuilderType &BuilderBase<bindingType, BuilderType, CreateInfoType>::with_
 	return *static_cast<BuilderType *>(this);
 }
 
-}        // namespace vkb
+} // namespace allocated
+} // namespace vkb
+

@@ -29,12 +29,11 @@ class Device;
 namespace allocated
 {
 /**
- * @brief Retrieves a reference to the VMA allocator singleton.  It will hold a null value except between
- * calls to `init` and `shutdown`.  Otherwise it contains the opaque handle to the VMA allocator.
- * @return The VMA allocator instance.
+ * @brief Retrieves a reference to the VMA allocator singleton.  It will hold an opaque handle to the VMA
+ * allocator between calls to `init` and `shutdown`.  Otherwise it contains a null pointer.
+ * @return A reference to the VMA allocator singleton handle.
  */
 VmaAllocator &get_memory_allocator();
-
 
 /**
  * @brief The non-templatized VMA initializer function, referenced by the template version to smooth
@@ -99,33 +98,28 @@ void init(const DeviceType &device)
 }
 
 /**
- * @brief Shuts down the VMA allocator and releases all resources.  Idempotent, but should be paired with `init` and attempting to run examples
+ * @brief Shuts down the VMA allocator and releases all resources.  Should be preceeded with a call to `init`.
  */
 void shutdown();
 
 /**
- */
-
-/**
- * @note This class was originally created as a non-templated base class for the `Allocated` class,
- * so that the implementation could be shunted to a cpp file to avoid triggering a complete rebuild
- * of the entire project when the implementation changed.  However, since it's now a templated class,
- * there's no reason to keep it distinct from the `Allocated` class, and this class could be merged into
- * `Allocated` for a less complex class hierarchy.
+ * @brief The `Allocated` class serves as a base class for wrappers around Vulkan that require memory allocation
+ * (`VkImage` and `VkBuffer`).  This class mostly ensures proper behavior for a RAII pattern, preventing double-release by
+ * preventing copy assignment and copy construction in favor of move semantics, as well as preventing default construction
+ * in favor of explicit construction with a pre-existing handle or a populated create info struct.
  *
- * @note Constants used in this documentation in the form of `HOST_COHERENT` are shorthand for
- * `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` used for the sake of brevity.
- *
- * @brief The base class for all resource which use allocated memory in addition to the raw resource
- * type.  This project uses the [VMA](https://gpuopen.com/vulkan-memory-allocator/) to handle the low
+ * This project uses the [VMA](https://gpuopen.com/vulkan-memory-allocator/) to handle the low
  * level details of memory allocation and management, as it hides away many of the messyy details of
  * memory allocation when a user is first learning Vulkan, but still allows for fine grained control
  * when a user becomes more experienced and the situation calls for it.
  *
+ * @note Constants used in this documentation in the form of `HOST_COHERENT` are shorthand for
+ * `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT` used for the sake of brevity.
+ *
  * @tparam bindingType A flag indicating whether this is being used with the C or C++ API
  */
-template <vkb::BindingType bindingType>
-class AllocatedBase
+template <vkb::BindingType bindingType, typename HandleType>
+class Allocated : public vkb::core::VulkanResource<bindingType, HandleType>
 {
   public:
 	using BufferType           = typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::Buffer, VkBuffer>::type;
@@ -134,15 +128,33 @@ class AllocatedBase
 	using DeviceSizeType       = typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::DeviceSize, VkDeviceSize>::type;
 	using ImageCreateInfoType  = typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::ImageCreateInfo, VkImageCreateInfo>::type;
 	using ImageType            = typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::Image, VkImage>::type;
+	using DeviceType           = typename std::conditional<bindingType == vkb::BindingType::Cpp, vkb::core::HPPDevice, vkb::Device>::type;
+	using ParentType           = vkb::core::VulkanResource<bindingType, HandleType>;
 
   public:
-	AllocatedBase() = default;
-	AllocatedBase(const VmaAllocationCreateInfo &allocation_create_info);
-	AllocatedBase(AllocatedBase const &) = delete;
-	AllocatedBase(AllocatedBase &&other) noexcept;
+	Allocated()                  = delete;
+	Allocated(const Allocated &) = delete;
+	Allocated(Allocated &&other) noexcept;
+	Allocated &operator=(Allocated const &other) = delete;
+	Allocated &operator=(Allocated &&other)      = default;
 
-	AllocatedBase &operator=(const AllocatedBase &) = delete;
-	AllocatedBase &operator=(AllocatedBase &&)      = default;
+  protected:
+	/**
+	 * @brief The VMA-specific constructor for new objects. This should only be visible to derived classes.
+	 * @tparam Args Additional constructor arguments needed for the derived class.  Typically a `VkImageCreateInfo` or `VkBufferCreateInfo` struct.
+	 * @param allocation_create_info All of the non-resource-specific information needed by the VMA to allocate the memory.
+	 */
+	template <typename... Args>
+	Allocated(const VmaAllocationCreateInfo &allocation_create_info, Args &&...args);
+
+	/**
+	 * @brief This constructor is used when the handle is already created, and the user wants to wrap it in an `Allocated` object.
+	 * @note I don't recall why this was necessary, and it might be something that should be either deprecated or removed.
+	 */
+	Allocated(HandleType handle, DeviceType *device_ = nullptr);
+
+  public:
+	const HandleType *get() const;
 
 	/**
 	 * @brief Flushes memory if it is NOT `HOST_COHERENT` (which also implies `HOST_VISIBLE`).
@@ -166,13 +178,12 @@ class AllocatedBase
 	DeviceMemoryType get_memory() const;
 
 	/**
-	 * @brief Maps Vulkan memory if it isn't already mapped to a host visible address. Does northing if the
+	 * @brief Maps Vulkan memory if it isn't already mapped to a host visible address. Does nothing if the
 	 * allocation is already mapped (including persistently mapped allocations).
 	 * @return Pointer to host visible memory.
 	 */
 	uint8_t *map();
 
-	/**
 	/**
 	 * @brief Returns true if the memory is mapped (i.e. the object contains a pointer for the mapping).
 	 * This is true for both objects where `map` has been called as well as objects created with persistent
@@ -213,9 +224,6 @@ class AllocatedBase
 	size_t update(void const *data, size_t size, size_t offset = 0);
 
 	/**
-	 * @todo Use the vk::ArrayBuffer class to replace these multiple templated methods.  To avoid ambiguity
-	 * with the non-templated version of the method, the new `vk::ArrayBuffer` version should be called `updateTyped`
-	 * or something similar.
 	 * @brief Copies a vector of items into the buffer.  This is a convenience method that allows the user to
 	 * pass a vector of items to the update method, which will then be copied into the buffer as bytes.
 	 *
@@ -224,6 +232,7 @@ class AllocatedBase
 	 * If the data needs to be aligned on something other than `sizeof(T)`, the user must manage that themselves.
 	 * @param data The data vector to upload
 	 * @param offset The offset to start the copying into the mapped data
+	 * @deprecated Use the `updateTyped` method that uses the `vk::ArrayProxy` class instead.
 	 */
 	template <typename T>
 	size_t update(std::vector<T> const &data, size_t offset = 0)
@@ -232,11 +241,11 @@ class AllocatedBase
 	}
 
 	/**
-	 * @todo Use the vk::ArrayBuffer class to replace these multiple templated methods.
 	 * @brief Another convenience method, similar to the vector update method, but for std::array. The same caveats apply.
 	 * @param data The data vector to upload
 	 * @param offset The offset to start the copying into the mapped data
 	 * @see update(std::vector<T> const &data, size_t offset = 0)
+	 * @deprecated Use the `updateTyped` method that uses the `vk::ArrayProxy` class instead.
 	 */
 	template <typename T, size_t N>
 	size_t update(std::array<T, N> const &data, size_t offset = 0)
@@ -245,17 +254,38 @@ class AllocatedBase
 	}
 
 	/**
-	 * @todo Use the vk::ArrayBuffer class to replace these multiple templated methods.
 	 * @brief Copies an object as byte data into the buffer.  This is a convenience method that allows the user to
 	 * pass an object to the update method, which will then be copied into the buffer as bytes.  The name difference
 	 * is to avoid amibuity with the `update` method signatures (including the non-templated version)
 	 * @param object The object to convert into byte data
 	 * @param offset The offset to start the copying into the mapped data
+	 * @deprecated Use the `updateTyped` method that uses the `vk::ArrayProxy` class instead.
 	 */
 	template <class T>
 	size_t convert_and_update(const T &object, size_t offset = 0)
 	{
 		return update(reinterpret_cast<const uint8_t *>(&object), sizeof(T), offset);
+	}
+	/**
+	 * @brief Copies an object as byte data into the buffer.  This is a convenience method that allows the user to
+	 * pass an object to the update method, which will then be copied into the buffer as bytes.  The use of the `vk::ArrayProxy`
+	 * type here to wrap the passed data means you can use any type related to T that can be used as a constructor to `vk::ArrayProxy`.
+	 * This includes `T`, `std::vector<T>`, `std::array<T, N>`, and `vk::ArrayProxy<T>`.
+	 *
+	 * @remark This was previously not feasible as it would have been undesirable to create a strong coupling with the
+	 * C++ Vulkan bindings where the `vk::ArrayProxy` type is defined.  However, structural changes have ensured that this
+	 * coupling is always present, so the `vk::ArrayProxy` may as well be used to our advantage here.
+	 *
+	 * @note This function DOES NOT automatically manage adhering to the alignment requirements of the items being copied,
+	 * for instance the `minUniformBufferOffsetAlignment` property of the [device](https://vulkan.gpuinfo.org/displaydevicelimit.php?name=minUniformBufferOffsetAlignment&platform=all).
+	 * If the data needs to be aligned on something other than `sizeof(T)`, the user must manage that themselves.
+	 *
+	 * @todo create `updateTypedAligned` which has an additional argument specifying the required GPU alignment of the elements of the array.
+	 */
+	template <class T>
+	size_t updateTyped(const vk::ArrayProxy<T> &object, size_t offset = 0)
+	{
+		return update(reinterpret_cast<const uint8_t *>(object.data()), object.size() * sizeof(T), offset);
 	}
 
   protected:
@@ -309,22 +339,31 @@ class AllocatedBase
 
 	VmaAllocationCreateInfo allocation_create_info = {};
 	VmaAllocation           allocation             = VK_NULL_HANDLE;
+	/**
+	 * @brief A pointer to the allocation memory, if the memory is HOST_VISIBLE and is currently (or persistently) mapped.
+	 * Contains null otherwise.
+	 */
 	uint8_t                *mapped_data            = nullptr;
+	/**
+	 * @brief This flag is set to true if the memory is coherent and doesn't need to be flushed after writes.
+	 *
+	 * @note This is initialized at allocation time to avoid subsequent need to call a function to fet the
+	 * allocation information from the VMA, since this property won't change for the lifetime of the allocation.
+	 */
 	bool                    coherent               = false;
-	bool                    persistent             = false;        // Whether the buffer is persistently mapped or not
+	/**
+	 * @brief This flag is set to true if the memory is persistently mapped (i.e. not just HOST_VISIBLE, but available
+	 * as a pointer to the application for the lifetime of the allocation).
+	 *
+	 * @note This is initialized at allocation time to avoid subsequent need to call a function to fet the
+	 * allocation information from the VMA, since this property won't change for the lifetime of the allocation.
+	 */
+	bool                    persistent             = false;
 };
 
-using AllocatedBaseC   = AllocatedBase<vkb::BindingType::C>;
-using AllocatedBaseCpp = AllocatedBase<vkb::BindingType::Cpp>;
-
-template <vkb::BindingType bindingType>
-inline AllocatedBase<bindingType>::AllocatedBase(const VmaAllocationCreateInfo &allocation_create_info) :
-    allocation_create_info(allocation_create_info)
-{
-}
-
-template <vkb::BindingType bindingType>
-inline AllocatedBase<bindingType>::AllocatedBase(AllocatedBase<bindingType> &&other) noexcept :
+template <vkb::BindingType bindingType, typename HandleType>
+inline Allocated<bindingType, HandleType>::Allocated(Allocated &&other) noexcept :
+    ParentType{static_cast<ParentType &&>(other)},
     allocation_create_info(std::exchange(other.allocation_create_info, {})),
     allocation(std::exchange(other.allocation, {})),
     mapped_data(std::exchange(other.mapped_data, {})),
@@ -333,16 +372,34 @@ inline AllocatedBase<bindingType>::AllocatedBase(AllocatedBase<bindingType> &&ot
 {
 }
 
-template <vkb::BindingType bindingType>
-inline void AllocatedBase<bindingType>::clear()
+template <vkb::BindingType bindingType, typename HandleType>
+template <typename... Args>
+inline Allocated<bindingType, HandleType>::Allocated(const VmaAllocationCreateInfo &allocation_create_info, Args &&...args) :
+    ParentType{std::forward<Args>(args)...},
+    allocation_create_info(allocation_create_info)
+{}
+
+template <vkb::BindingType bindingType, typename HandleType>
+inline Allocated<bindingType, HandleType>::Allocated(HandleType handle, DeviceType *device_) :
+    ParentType(handle, device_)
+{}
+
+template <vkb::BindingType bindingType, typename HandleType>
+inline const HandleType *Allocated<bindingType, HandleType>::get() const
+{
+	return &ParentType::get_handle();
+}
+
+template <vkb::BindingType bindingType, typename HandleType>
+inline void Allocated<bindingType, HandleType>::clear()
 {
 	mapped_data            = nullptr;
 	persistent             = false;
 	allocation_create_info = {};
 }
 
-template <vkb::BindingType bindingType>
-inline typename AllocatedBase<bindingType>::BufferType AllocatedBase<bindingType>::create_buffer(BufferCreateInfoType const &create_info)
+template <vkb::BindingType bindingType, typename HandleType>
+inline typename Allocated<bindingType, HandleType>::BufferType Allocated<bindingType, HandleType>::create_buffer(BufferCreateInfoType const &create_info)
 {
 	if constexpr (bindingType == vkb::BindingType::Cpp)
 	{
@@ -354,8 +411,8 @@ inline typename AllocatedBase<bindingType>::BufferType AllocatedBase<bindingType
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline vk::Buffer AllocatedBase<bindingType>::create_buffer_impl(vk::BufferCreateInfo const &create_info)
+template <vkb::BindingType bindingType, typename HandleType>
+inline vk::Buffer Allocated<bindingType, HandleType>::create_buffer_impl(vk::BufferCreateInfo const &create_info)
 {
 	vk::Buffer        buffer = VK_NULL_HANDLE;
 	VmaAllocationInfo allocation_info{};
@@ -376,8 +433,8 @@ inline vk::Buffer AllocatedBase<bindingType>::create_buffer_impl(vk::BufferCreat
 	return buffer;
 }
 
-template <vkb::BindingType bindingType>
-inline typename AllocatedBase<bindingType>::ImageType AllocatedBase<bindingType>::create_image(ImageCreateInfoType const &create_info)
+template <vkb::BindingType bindingType, typename HandleType>
+inline typename Allocated<bindingType, HandleType>::ImageType Allocated<bindingType, HandleType>::create_image(ImageCreateInfoType const &create_info)
 {
 	if constexpr (bindingType == vkb::BindingType::Cpp)
 	{
@@ -389,8 +446,8 @@ inline typename AllocatedBase<bindingType>::ImageType AllocatedBase<bindingType>
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline vk::Image AllocatedBase<bindingType>::create_image_impl(vk::ImageCreateInfo const &create_info)
+template <vkb::BindingType bindingType, typename HandleType>
+inline vk::Image Allocated<bindingType, HandleType>::create_image_impl(vk::ImageCreateInfo const &create_info)
 {
 	assert(0 < create_info.mipLevels && "Images should have at least one level");
 	assert(0 < create_info.arrayLayers && "Images should have at least one layer");
@@ -429,8 +486,8 @@ inline vk::Image AllocatedBase<bindingType>::create_image_impl(vk::ImageCreateIn
 	return image;
 }
 
-template <vkb::BindingType bindingType>
-inline void AllocatedBase<bindingType>::destroy_buffer(BufferType handle)
+template <vkb::BindingType bindingType, typename HandleType>
+inline void Allocated<bindingType, HandleType>::destroy_buffer(BufferType handle)
 {
 	if (handle != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE)
 	{
@@ -447,8 +504,8 @@ inline void AllocatedBase<bindingType>::destroy_buffer(BufferType handle)
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline void AllocatedBase<bindingType>::destroy_image(ImageType image)
+template <vkb::BindingType bindingType, typename HandleType>
+inline void Allocated<bindingType, HandleType>::destroy_image(ImageType image)
 {
 	if (image != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE)
 	{
@@ -465,8 +522,8 @@ inline void AllocatedBase<bindingType>::destroy_image(ImageType image)
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline void AllocatedBase<bindingType>::flush(DeviceSizeType offset, DeviceSizeType size)
+template <vkb::BindingType bindingType, typename HandleType>
+inline void Allocated<bindingType, HandleType>::flush(DeviceSizeType offset, DeviceSizeType size)
 {
 	if (!coherent)
 	{
@@ -481,14 +538,14 @@ inline void AllocatedBase<bindingType>::flush(DeviceSizeType offset, DeviceSizeT
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline const uint8_t *AllocatedBase<bindingType>::get_data() const
+template <vkb::BindingType bindingType, typename HandleType>
+inline const uint8_t *Allocated<bindingType, HandleType>::get_data() const
 {
 	return mapped_data;
 }
 
-template <vkb::BindingType bindingType>
-inline typename AllocatedBase<bindingType>::DeviceMemoryType AllocatedBase<bindingType>::get_memory() const
+template <vkb::BindingType bindingType, typename HandleType>
+inline typename Allocated<bindingType, HandleType>::DeviceMemoryType Allocated<bindingType, HandleType>::get_memory() const
 {
 	VmaAllocationInfo alloc_info;
 	vmaGetAllocationInfo(get_memory_allocator(), allocation, &alloc_info);
@@ -502,8 +559,8 @@ inline typename AllocatedBase<bindingType>::DeviceMemoryType AllocatedBase<bindi
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline uint8_t *AllocatedBase<bindingType>::map()
+template <vkb::BindingType bindingType, typename HandleType>
+inline uint8_t *Allocated<bindingType, HandleType>::map()
 {
 	if (!persistent && !mapped())
 	{
@@ -513,14 +570,14 @@ inline uint8_t *AllocatedBase<bindingType>::map()
 	return mapped_data;
 }
 
-template <vkb::BindingType bindingType>
-inline bool AllocatedBase<bindingType>::mapped() const
+template <vkb::BindingType bindingType, typename HandleType>
+inline bool Allocated<bindingType, HandleType>::mapped() const
 {
 	return mapped_data != nullptr;
 }
 
-template <vkb::BindingType bindingType>
-inline void AllocatedBase<bindingType>::post_create(VmaAllocationInfo const &allocation_info)
+template <vkb::BindingType bindingType, typename HandleType>
+inline void Allocated<bindingType, HandleType>::post_create(VmaAllocationInfo const &allocation_info)
 {
 	VkMemoryPropertyFlags memory_properties;
 	vmaGetAllocationMemoryProperties(get_memory_allocator(), allocation, &memory_properties);
@@ -529,8 +586,8 @@ inline void AllocatedBase<bindingType>::post_create(VmaAllocationInfo const &all
 	persistent  = mapped();
 }
 
-template <vkb::BindingType bindingType>
-inline void AllocatedBase<bindingType>::unmap()
+template <vkb::BindingType bindingType, typename HandleType>
+inline void Allocated<bindingType, HandleType>::unmap()
 {
 	if (!persistent && mapped())
 	{
@@ -539,8 +596,8 @@ inline void AllocatedBase<bindingType>::unmap()
 	}
 }
 
-template <vkb::BindingType bindingType>
-inline size_t AllocatedBase<bindingType>::update(const uint8_t *data, size_t size, size_t offset)
+template <vkb::BindingType bindingType, typename HandleType>
+inline size_t Allocated<bindingType, HandleType>::update(const uint8_t *data, size_t size, size_t offset)
 {
 	if (persistent)
 	{
@@ -557,80 +614,16 @@ inline size_t AllocatedBase<bindingType>::update(const uint8_t *data, size_t siz
 	return size;
 }
 
-template <vkb::BindingType bindingType>
-inline size_t AllocatedBase<bindingType>::update(void const *data, size_t size, size_t offset)
+template <vkb::BindingType bindingType, typename HandleType>
+inline size_t Allocated<bindingType, HandleType>::update(void const *data, size_t size, size_t offset)
 {
 	return update(reinterpret_cast<const uint8_t *>(data), size, offset);
 }
-
-/**
- * @note Most of the common functionality is implemented in the `AllocatedBase` class, which was preveiously
- * not templated and had its implementation shunted to a cpp file to avoid triggering a complete rebuild of the
- * project with every change.  However, these two classes should now probably be merged.
- * @brief The `Allocated` class is serves as a base class for wrappers around Vulkan that require memory allocation
- * (`VkImage` and `VkBuffer`).  This class mostly ensures proper behavior for a RAII pattern, preventing double-release by
- * preventing copy assignment and copy construction in favor of move semantics, as well as preventing default construction
- * in favor of explicit construction with a pre-existing handle or a populated create info struct.
- */
-template <vkb::BindingType bindingType, typename HandleType>
-class Allocated : public vkb::core::VulkanResource<bindingType, HandleType>, public AllocatedBase<bindingType>
-{
-  public:
-	using DeviceType = typename std::conditional<bindingType == vkb::BindingType::Cpp, vkb::core::HPPDevice, vkb::Device>::type;
-
-	using ParentType = vkb::core::VulkanResource<bindingType, HandleType>;
-
-  public:
-	Allocated()                                  = delete;
-	Allocated(const Allocated &)                 = delete;
-	Allocated &operator=(Allocated const &other) = delete;
-	Allocated &operator=(Allocated &&other)      = default;
-
-	/**
-	 * @tparam Args Additional constructor arguments needed for the derived class.  Typically a `VkImageCreateInfo` or `VkBufferCreateInfo` struct.
-	 * @param allocation_create_info All of the non-resource-specific information needed by the VMA to allocate the memory.
-	 */
-	template <typename... Args>
-	Allocated(const VmaAllocationCreateInfo &allocation_create_info, Args &&...args);
-
-	/**
-	 * @brief This constructor is used when the handle is already created, and the user wants to wrap it in an `Allocated` object.
-	 * @note I don't recall why this was necessary, and it might be something that should be either deprecated or removed.
-	 */
-	Allocated(HandleType handle, DeviceType *device_ = nullptr);
-
-	Allocated(Allocated &&other) noexcept;
-
-	const HandleType *get() const;
-};
 
 template <typename HandleType>
 using AllocatedC = Allocated<vkb::BindingType::C, HandleType>;
 template <typename HandleType>
 using AllocatedCpp = Allocated<vkb::BindingType::Cpp, HandleType>;
 
-template <vkb::BindingType bindingType, typename HandleType>
-template <typename... Args>
-inline Allocated<bindingType, HandleType>::Allocated(const VmaAllocationCreateInfo &allocation_create_info, Args &&...args) :
-    ParentType{std::forward<Args>(args)...},
-    AllocatedBase<bindingType>{allocation_create_info}
-{}
-
-template <vkb::BindingType bindingType, typename HandleType>
-inline Allocated<bindingType, HandleType>::Allocated(HandleType handle, DeviceType *device_) :
-    ParentType(handle, device_)
-{}
-
-template <vkb::BindingType bindingType, typename HandleType>
-inline Allocated<bindingType, HandleType>::Allocated(Allocated &&other) noexcept :
-    ParentType{static_cast<ParentType &&>(other)},
-    AllocatedBase<bindingType>{static_cast<AllocatedBase<bindingType> &&>(other)}
-{}
-
-template <vkb::BindingType bindingType, typename HandleType>
-inline const HandleType *Allocated<bindingType, HandleType>::get() const
-{
-	return &ParentType::get_handle();
-}
 }        // namespace allocated
 }        // namespace vkb
