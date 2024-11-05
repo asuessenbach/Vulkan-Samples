@@ -34,8 +34,8 @@ using BufferPtr = std::unique_ptr<Buffer<bindingType>>;
 template <vkb::BindingType bindingType>
 struct BufferBuilder
     : public vkb::allocated::BuilderBase<bindingType,
-                              BufferBuilder<bindingType>,
-                              typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::BufferCreateInfo, VkBufferCreateInfo>::type>
+                                         BufferBuilder<bindingType>,
+                                         typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::BufferCreateInfo, VkBufferCreateInfo>::type>
 {
   public:
 	using BufferCreateFlagsType = typename std::conditional<bindingType == vkb::BindingType::Cpp, vk::BufferCreateFlags, VkBufferCreateFlags>::type;

@@ -149,7 +149,10 @@ class Allocated : public vkb::core::VulkanResource<bindingType, HandleType>
 
 	/**
 	 * @brief This constructor is used when the handle is already created, and the user wants to wrap it in an `Allocated` object.
-	 * @note I don't recall why this was necessary, and it might be something that should be either deprecated or removed.
+	 * @note This constructor is used when the API provides us a pre-existing handle to something we didn't actually allocate, for instance
+	 * when we allocate a swapchain and access the images in it.  In these cases the `allocation` member variable will remain null for the
+	 * lifetime of the wrapper object (which is NOT necessarily the lifetime of the handle) and the wrapper will make no attempt to apply
+	 * RAII semantics.
 	 */
 	Allocated(HandleType handle, DeviceType *device_ = nullptr);
 
@@ -309,7 +312,7 @@ class Allocated : public vkb::core::VulkanResource<bindingType, HandleType>
 	 * @brief The post_create method is called after the creation of a buffer or image to store the allocation info internally.  Derived classes
 	 * could in theory override this to ensure any post-allocation operations are performed, but the base class should always be called to ensure
 	 * the allocation info is stored.
-	 * Should only be called in the corresping `create_xxx` methods.
+	 * Should only be called in the corresponding `create_xxx` methods.
 	 */
 	virtual void post_create(VmaAllocationInfo const &allocation_info);
 
@@ -347,7 +350,7 @@ class Allocated : public vkb::core::VulkanResource<bindingType, HandleType>
 	/**
 	 * @brief This flag is set to true if the memory is coherent and doesn't need to be flushed after writes.
 	 *
-	 * @note This is initialized at allocation time to avoid subsequent need to call a function to fet the
+	 * @note This is initialized at allocation time to avoid subsequent need to call a function to fetch the
 	 * allocation information from the VMA, since this property won't change for the lifetime of the allocation.
 	 */
 	bool                    coherent               = false;
@@ -355,7 +358,7 @@ class Allocated : public vkb::core::VulkanResource<bindingType, HandleType>
 	 * @brief This flag is set to true if the memory is persistently mapped (i.e. not just HOST_VISIBLE, but available
 	 * as a pointer to the application for the lifetime of the allocation).
 	 *
-	 * @note This is initialized at allocation time to avoid subsequent need to call a function to fet the
+	 * @note This is initialized at allocation time to avoid subsequent need to call a function to fetch the
 	 * allocation information from the VMA, since this property won't change for the lifetime of the allocation.
 	 */
 	bool                    persistent             = false;
