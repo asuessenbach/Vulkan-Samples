@@ -1,4 +1,4 @@
-/* Copyright (c) 2019-2025, Arm Limited and Contributors
+/* Copyright (c) 2019-2026, Arm Limited and Contributors
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -52,9 +52,9 @@ class PipelineBarriers : public vkb::VulkanSampleC
 
 	virtual void draw_gui() override;
 
-	vkb::RenderPipeline gbuffer_pipeline;
+	vkb::rendering::RenderPipelineC gbuffer_pipeline;
 
-	vkb::RenderPipeline lighting_pipeline;
+	vkb::rendering::RenderPipelineC lighting_pipeline;
 
 	DependencyType dependency_type{DependencyType::BOTTOM_TO_TOP};
 };
