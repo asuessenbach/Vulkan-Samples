@@ -41,7 +41,8 @@ template <typename... TAGS>
 class PluginBase : public Plugin, public Tag<TAGS...>
 {
   public:
-	PluginBase(const std::string name, const std::string description, const std::vector<Hook> &hooks = {}, std::vector<std::pair<std::string, std::string>> const &commands = {}, std::vector<std::pair<std::string, std::string>> const &options = {});
+	PluginBase(const std::string name, const std::string description, const std::vector<Hook> &hooks = {},
+	           std::vector<std::pair<std::string, std::string>> const &commands = {}, std::vector<std::pair<std::string, std::string>> const &options = {});
 
 	virtual ~PluginBase() = default;
 
@@ -49,13 +50,13 @@ class PluginBase : public Plugin, public Tag<TAGS...>
 	bool                     has_tag(TagID id) const override;
 
 	// hooks that can be implemented by plugins
-	void on_update(float delta_time) override{};
-	void on_app_start(const std::string &app_id) override{};
-	void on_app_close(const std::string &app_id) override{};
-	void on_platform_close() override{};
-	void on_post_draw(vkb::rendering::RenderContextC &context) override{};
-	void on_app_error(const std::string &app_id) override{};
-	void on_update_ui_overlay(vkb::Drawer &drawer) override{};
+	void on_update(float delta_time) override {};
+	void on_app_start(const std::string &app_id) override {};
+	void on_app_close(const std::string &app_id) override {};
+	void on_platform_close() override {};
+	void on_post_draw(vkb::rendering::RenderContextC &context) override {};
+	void on_app_error(const std::string &app_id) override {};
+	void on_update_ui_overlay(vkb::Drawer &drawer) override {};
 
   private:
 	Tag<TAGS...> *tags = reinterpret_cast<Tag<TAGS...> *>(this);
@@ -64,10 +65,11 @@ class PluginBase : public Plugin, public Tag<TAGS...>
 };
 
 template <typename... TAGS>
-PluginBase<TAGS...>::PluginBase(const std::string name, const std::string description, const std::vector<Hook> &hooks, std::vector<std::pair<std::string, std::string>> const &commands, std::vector<std::pair<std::string, std::string>> const &options) :
+PluginBase<TAGS...>::PluginBase(const std::string name, const std::string description, const std::vector<Hook> &hooks,
+                                std::vector<std::pair<std::string, std::string>> const &commands,
+                                std::vector<std::pair<std::string, std::string>> const &options) :
     Plugin(name, description, commands, options), hooks{hooks}
-{
-}
+{}
 
 template <typename... TAGS>
 bool PluginBase<TAGS...>::has_tag(TagID id) const

@@ -31,13 +31,9 @@ class ShaderObject : public ApiVulkanSample
 		std::vector<uint32_t> spirv;
 
 	  public:
-		Shader(){};
-		Shader(VkShaderStageFlagBits        stage,
-		       VkShaderStageFlags           next_stage,
-		       std::string                  name,
-		       const std::vector<uint32_t> &vert_shader_source,
-		       const VkDescriptorSetLayout *pSetLayouts,
-		       const VkPushConstantRange   *pPushConstantRange);
+		Shader() {};
+		Shader(VkShaderStageFlagBits stage, VkShaderStageFlags next_stage, std::string name, const std::vector<uint32_t> &vert_shader_source,
+		       const VkDescriptorSetLayout *pSetLayouts, const VkPushConstantRange *pPushConstantRange);
 
 		std::string get_name()
 		{

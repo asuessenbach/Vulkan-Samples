@@ -58,8 +58,7 @@ class Application
 	 * @param delta_time The time taken since the last frame
 	 * @param additional_ui Function that implements an additional Gui
 	 */
-	virtual void update_overlay(
-	    float delta_time, const std::function<void()> &additional_ui = []() {});
+	virtual void update_overlay(float delta_time, const std::function<void()> &additional_ui = []() {});
 
 	/**
 	 * @brief Handles cleaning up the application
