@@ -1,4 +1,4 @@
-/* Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -66,16 +66,15 @@ HPPImage::HPPImage(vkb::core::DeviceCpp   &device,
                    vk::ImageCreateFlags    flags,
                    uint32_t                num_queue_families,
                    const uint32_t         *queue_families) :
-    HPPImage{device,
-             HPPImageBuilder{extent}
-                 .with_format(format)
-                 .with_mip_levels(mip_levels)
-                 .with_array_layers(array_layers)
-                 .with_sample_count(sample_count)
-                 .with_tiling(tiling)
-                 .with_flags(flags)
-                 .with_usage(image_usage)
-                 .with_queue_families(num_queue_families, queue_families)}
+    HPPImage{device, HPPImageBuilder{extent}
+                         .with_format(format)
+                         .with_mip_levels(mip_levels)
+                         .with_array_layers(array_layers)
+                         .with_sample_count(sample_count)
+                         .with_tiling(tiling)
+                         .with_flags(flags)
+                         .with_usage(image_usage)
+                         .with_queue_families(num_queue_families, queue_families)}
 {}
 
 HPPImage::HPPImage(vkb::core::DeviceCpp &device, HPPImageBuilder const &builder) :
