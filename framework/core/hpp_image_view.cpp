@@ -1,4 +1,4 @@
-/* Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2023-2026, NVIDIA CORPORATION. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -39,7 +39,8 @@ HPPImageView::HPPImageView(vkb::core::HPPImage &img,
 		this->format = format = image->get_format();
 	}
 
-	subresource_range = vk::ImageSubresourceRange{.aspectMask     = (std::string(vk::componentName(format, 0)) == "D") ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
+	subresource_range = vk::ImageSubresourceRange{.aspectMask     = (std::string(vk::componentName(format, 0)) == "D") ? vk::ImageAspectFlagBits::eDepth :
+	                                                                                                                     vk::ImageAspectFlagBits::eColor,
 	                                              .baseMipLevel   = mip_level,
 	                                              .levelCount     = n_mip_levels == 0 ? image->get_subresource().mipLevel : n_mip_levels,
 	                                              .baseArrayLayer = array_layer,
@@ -92,8 +93,8 @@ void HPPImageView::set_image(vkb::core::HPPImage &img)
 
 vk::ImageSubresourceLayers HPPImageView::get_subresource_layers() const
 {
-	return vk::ImageSubresourceLayers{
-	    subresource_range.aspectMask, subresource_range.baseMipLevel, subresource_range.baseArrayLayer, subresource_range.layerCount};
+	return vk::ImageSubresourceLayers{subresource_range.aspectMask, subresource_range.baseMipLevel, subresource_range.baseArrayLayer,
+	                                  subresource_range.layerCount};
 }
 
 vk::ImageSubresourceRange HPPImageView::get_subresource_range() const

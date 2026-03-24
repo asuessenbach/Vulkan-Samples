@@ -1,5 +1,5 @@
-/* Copyright (c) 2018-2025, Arm Limited and Contributors
- * Copyright (c) 2019-2025, Sascha Willems
+/* Copyright (c) 2018-2026, Arm Limited and Contributors
+ * Copyright (c) 2019-2026, Sascha Willems
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -90,7 +90,8 @@ class GLTFLoader
 	 * @brief Loads the first model from a GLTF file for use in simpler samples
 	 *        makes use of the Vertex struct in vulkan_example_base.h
 	 */
-	std::unique_ptr<sg::SubMesh> read_model_from_file(const std::string &file_name, uint32_t index, bool storage_buffer = false, VkBufferUsageFlags additional_buffer_usage_flags = 0);
+	std::unique_ptr<sg::SubMesh>
+	    read_model_from_file(const std::string &file_name, uint32_t index, bool storage_buffer = false, VkBufferUsageFlags additional_buffer_usage_flags = 0);
 
   protected:
 	virtual std::unique_ptr<vkb::scene_graph::NodeC> parse_node(const tinygltf::Node &gltf_node, size_t index) const;

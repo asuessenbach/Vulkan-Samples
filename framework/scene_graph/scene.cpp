@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2025, Arm Limited and Contributors
+/* Copyright (c) 2018-2026, Arm Limited and Contributors
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -27,8 +27,7 @@ namespace vkb
 {
 namespace sg
 {
-Scene::Scene(const std::string &name) :
-    name{name}
+Scene::Scene(const std::string &name) : name{name}
 {}
 
 void Scene::set_name(const std::string &new_name)

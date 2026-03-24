@@ -78,10 +78,8 @@ class HPPResourceRecord : private vkb::ResourceRecord
 	                              const std::string                 &entry_point,
 	                              const vkb::core::HPPShaderVariant &shader_variant)
 	{
-		return vkb::ResourceRecord::register_shader_module(static_cast<VkShaderStageFlagBits>(stage),
-		                                                   reinterpret_cast<vkb::ShaderSource const &>(glsl_source),
-		                                                   entry_point,
-		                                                   reinterpret_cast<vkb::ShaderVariant const &>(shader_variant));
+		return vkb::ResourceRecord::register_shader_module(static_cast<VkShaderStageFlagBits>(stage), reinterpret_cast<vkb::ShaderSource const &>(glsl_source),
+		                                                   entry_point, reinterpret_cast<vkb::ShaderVariant const &>(shader_variant));
 	}
 
 	void set_graphics_pipeline(size_t index, const vkb::core::HPPGraphicsPipeline &graphics_pipeline)

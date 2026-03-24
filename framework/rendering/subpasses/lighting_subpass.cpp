@@ -1,4 +1,4 @@
-/* Copyright (c) 2019-2025, Arm Limited and Contributors
+/* Copyright (c) 2019-2026, Arm Limited and Contributors
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -29,8 +29,7 @@ namespace vkb
 LightingSubpass::LightingSubpass(
     vkb::rendering::RenderContextC &render_context, ShaderSource &&vertex_shader, ShaderSource &&fragment_shader, sg::Camera &cam, sg::Scene &scene_) :
     Subpass{render_context, std::move(vertex_shader), std::move(fragment_shader)}, camera{cam}, scene{scene_}
-{
-}
+{}
 
 void LightingSubpass::prepare()
 {
