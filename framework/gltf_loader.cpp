@@ -402,7 +402,8 @@ std::unordered_map<std::string, bool> GLTFLoader::supported_extensions = {{KHR_L
 GLTFLoader::GLTFLoader(vkb::core::DeviceC &device) : device{device}
 {}
 
-std::unique_ptr<vkb::scene_graph::SceneC> GLTFLoader::read_scene_from_file(const std::string &file_name, int scene_index, VkBufferUsageFlags additional_buffer_usage_flags)
+std::unique_ptr<vkb::scene_graph::SceneC>
+    GLTFLoader::read_scene_from_file(const std::string &file_name, int scene_index, VkBufferUsageFlags additional_buffer_usage_flags)
 {
 	PROFILE_SCOPE("Load GLTF Scene");
 

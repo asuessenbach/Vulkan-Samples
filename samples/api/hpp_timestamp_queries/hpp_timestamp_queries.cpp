@@ -541,9 +541,13 @@ void HPPTimestampQueries::get_time_stamp_results()
 	// A note on the flags used:
 	//	vk::QueryResultFlagBits::e64: Results will have 64 bits. As time stamp values are on nano-seconds, this flag should always be used to avoid 32 bit overflows
 	//  vk::QueryResultFlagBits::eWait: Since we want to immediately display the results, we use this flag to have the CPU wait until the results are available
-	vk::Result result =
-	    get_device().get_handle().getQueryPoolResults(time_stamps.query_pool, 0, count, time_stamps.values.size() * sizeof(uint64_t), time_stamps.values.data(),
-	                                                  sizeof(uint64_t), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+	vk::Result result = get_device().get_handle().getQueryPoolResults(time_stamps.query_pool,
+	                                                                  0,
+	                                                                  count,
+	                                                                  time_stamps.values.size() * sizeof(uint64_t),
+	                                                                  time_stamps.values.data(),
+	                                                                  sizeof(uint64_t),
+	                                                                  vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
 	assert(result == vk::Result::eSuccess);
 }
 
