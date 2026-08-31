@@ -269,6 +269,21 @@ struct HPPRecordHelper<vkb::core::HPPGraphicsPipeline, A...>
 		recorder.set_graphics_pipeline(index, graphics_pipeline);
 	}
 };
+
+template <class... A>
+struct HPPRecordHelper<vkb::core::ShaderModuleCpp, A...>
+{
+	size_t record(HPPResourceRecord &recorder, A &...args)
+	{
+		return recorder.register_shader_module(args...);
+	}
+
+	void index(HPPResourceRecord &recorder, size_t index, vkb::core::ShaderModuleCpp &shader_module)
+	{
+		recorder.set_shader_module(index, shader_module);
+	}
+};
+
 }        // namespace
 
 template <class T, class... A>
